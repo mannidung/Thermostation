@@ -1,7 +1,3 @@
-
-#include <Wire.h>
-#include <SPI.h>
-#include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
 #include <InfluxDbClient.h>
 #include <uptime.h>
@@ -9,10 +5,10 @@
 #include "InfluxDBCredentials.h"
 
 // Constants for the 
-#define BME_SCK 13
-#define BME_MISO 12
-#define BME_MOSI 11
-#define BME_CS 10
+//#define BME_SCK 13
+//#define BME_MISO 12
+//#define BME_MOSI 11
+//#define BME_CS 10
 
 #if defined(ESP32)
 #include <WiFiMulti.h>
@@ -46,17 +42,7 @@ unsigned long delayTime;
 Adafruit_BME280 bme; // I2C
 Point sensor(UNIT_TAG);
 
-void setup() {
-    Serial.begin(9600);
-    while(!Serial);    // time to get serial running
-    pinMode(LED_BUILTIN, OUTPUT);
-    
-    Serial.println();
-    Serial.println();
-    Serial.println(F("METEOSTATION"));
-    Serial.print(F("UNIT NAME: "));
-    Serial.println(UNIT_TAG);
-
+void connectSensor() {
     unsigned status;
 
     // Connect to sensor
@@ -75,7 +61,7 @@ void setup() {
         while (1) delay(10);
     }
     Serial.println();
-    Serial.println("Successfully connected to sensor...");
+    Serial.println("Successfully connected to sensor, setting forced mode...");
     Serial.println();
     Serial.println();
 
@@ -85,7 +71,13 @@ void setup() {
                     Adafruit_BME280::SAMPLING_X1, // pressure
                     Adafruit_BME280::SAMPLING_X1, // humidity
                     Adafruit_BME280::FILTER_OFF   );
+    Serial.println();
+    Serial.println("Forced mode set, sensor ready...");
+    Serial.println();
+    Serial.println();
+}
 
+void connectWifi() {
     // Connect WiFi
     Serial.println("Connecting to WiFi");
     WiFi.mode(WIFI_STA);
@@ -96,34 +88,16 @@ void setup() {
     }
     
     Serial.println();
+    Serial.println("Connected to Wifi");
     Serial.println();
-    Serial.println();
-
-      // Check server connection
-    if (client.validateConnection()) {
-      Serial.print("Connected to InfluxDB: ");
-      Serial.println(client.getServerUrl());
-      // Add tags
-      sensor.addTag("device", DEVICE);
-      sensor.addTag("unit", UNIT_TAG); 
-    } else {
-      Serial.print("InfluxDB connection failed: ");
-      Serial.println(client.getLastErrorMessage());
-    }
-
-    Serial.println();
-    Serial.println();
-    Serial.println();
-
-    blink();
 }
 
-void loop() { 
-    postValues();
-    delay(DELAY);
+void setMeasurementTags() {
+  sensor.addTag("device", DEVICE);
+  sensor.addTag("unit", UNIT_TAG);
 }
 
-void postValues() {
+void readSensor() {
     // Store measured value into point
     sensor.clearFields();
     bme.takeForcedMeasurement();
@@ -132,6 +106,10 @@ void postValues() {
     sensor.addField("temperature", bme.readTemperature());
     sensor.addField("pressure", bme.readPressure() / 100.0F);
     sensor.addField("humidity", bme.readHumidity());
+    
+}
+
+void submitMeasurement() {
     // Print what are we exactly writing
     Serial.print("Writing: ");
     Serial.println(client.pointToLineProtocol(sensor));
@@ -147,7 +125,36 @@ void postValues() {
     if (BLINK) {
       blink();
     }
+}
+
+void setup() {
+    Serial.begin(9600);
+    while(!Serial);    // time to get serial running
+    pinMode(LED_BUILTIN, OUTPUT);
     
+    Serial.println();
+    Serial.println();
+    Serial.println(F("METEOSTATION"));
+    Serial.print(F("UNIT NAME: "));
+    Serial.println(UNIT_TAG);
+
+    // Connect the BME280 sensor
+    connectSensor();
+    // Connect to the Wifi
+    connectWifi();
+    // Set the tags of the measurement
+    setMeasurementTags();
+
+
+    Serial.println();
+
+    blink();
+}
+
+void loop() { 
+    readSensor();
+    submitMeasurement();
+    delay(DELAY);
 }
 
 void blink() {

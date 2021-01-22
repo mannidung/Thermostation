@@ -3,6 +3,7 @@
 #include <uptime.h>
 #include "WIFICredentials.h"
 #include "InfluxDBCredentials.h"
+#include "ThermostationConfig.h"
 
 #if defined(ESP32)
 #include <WiFiMulti.h>
@@ -18,8 +19,6 @@ ESP8266WiFiMulti wifiMulti;
 
 // ####### CONFIG #######
 // The user may/should change these settings as he wishes
-const char* UNIT_TAG = "bedroom"; // The name of the unit that will show up in InfluxDB
-const int DELAY = 60e6; // Delay between measurements in microseconds
 
 // ####### InfluxDB ######
 
@@ -48,10 +47,7 @@ void connectSensor() {
         delay(1000);                       // wait for a second 
         while (1) delay(10);
     }
-    Serial.println();
     Serial.println("Successfully connected to sensor, setting forced mode...");
-    Serial.println();
-    Serial.println();
 
     // Set forced mode to lower power consumption
     bme.setSampling(Adafruit_BME280::MODE_FORCED,
@@ -59,9 +55,7 @@ void connectSensor() {
                     Adafruit_BME280::SAMPLING_X1, // pressure
                     Adafruit_BME280::SAMPLING_X1, // humidity
                     Adafruit_BME280::FILTER_OFF   );
-    Serial.println();
     Serial.println("Forced mode set, sensor ready...");
-    Serial.println();
     Serial.println();
 }
 
@@ -75,7 +69,6 @@ void connectWifi() {
       delay(1000); 
     }
     
-    Serial.println();
     Serial.println("Connected to Wifi");
     Serial.println();
 }
@@ -117,7 +110,6 @@ void setup() {
     while(!Serial);    // time to get serial running
     
     Serial.println();
-    Serial.println();
     Serial.println(F("METEOSTATION"));
     Serial.print(F("UNIT NAME: "));
     Serial.println(UNIT_TAG);
@@ -132,9 +124,6 @@ void setup() {
     // Do the measurement
     readSensor();
     submitMeasurement();
-
-
-    Serial.println();
 
     Serial.println("Sleeping until next cycle...");
     ESP.deepSleep(DELAY); // Going into deep sleep

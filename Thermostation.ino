@@ -8,12 +8,11 @@
 #include "WIFICredentials.h"
 #include "InfluxDBCredentials.h"
 
+// Constants for the 
 #define BME_SCK 13
 #define BME_MISO 12
 #define BME_MOSI 11
 #define BME_CS 10
-
-#define SEALEVELPRESSURE_HPA (1013.25)
 
 #if defined(ESP32)
 #include <WiFiMulti.h>
@@ -25,15 +24,13 @@ ESP8266WiFiMulti wifiMulti;
 #define DEVICE "ESP8266"
 #endif
 
-#define UNIT_TAG "kitchen"
-// Delay between measurements
-#define DELAY 60000
 #define SPI_ADDRESS 0x76
-#define BLINK 0
 
-// ####### WIFI ######
-char wifi_ssid[] = WIFI_SSID;
-char wifi_pass[] = WIFI_PASS;
+// ####### CONFIG #######
+// The user may/should change these settings as he wishes
+const char* UNIT_TAG = "bedroom"; // The name of the unit that will show up in InfluxDB
+const int DELAY = 60000; // Delay between measurements in milliseconds
+const int BLINK = 0; // Should the unit blink when measurement is sent? 0 for false, 1 for true
 
 // ####### InfluxDB ######
 
@@ -54,16 +51,16 @@ void setup() {
     while(!Serial);    // time to get serial running
     pinMode(LED_BUILTIN, OUTPUT);
     
+    Serial.println();
+    Serial.println();
     Serial.println(F("METEOSTATION"));
     Serial.print(F("UNIT NAME: "));
-    Serial.println(F(UNIT_TAG));
+    Serial.println(UNIT_TAG);
 
     unsigned status;
-    
-    // default settings
-    status = bme.begin(0x76);  
-    // You can also pass in a Wire library object like &Wire2
-    // status = bme.begin(0x76, &Wire2)
+
+    // Connect to sensor
+    status = bme.begin(SPI_ADDRESS);  
     if (!status) {
         Serial.println("Could not find a valid BME280 sensor, check wiring, address, sensor ID!");
         Serial.print("SensorID was: 0x"); Serial.println(bme.sensorID(),16);
@@ -77,7 +74,12 @@ void setup() {
         delay(1000);                       // wait for a second 
         while (1) delay(10);
     }
+    Serial.println();
+    Serial.println("Successfully connected to sensor...");
+    Serial.println();
+    Serial.println();
 
+    // Set forced mode to lower power consumption
     bme.setSampling(Adafruit_BME280::MODE_FORCED,
                     Adafruit_BME280::SAMPLING_X1, // temperature
                     Adafruit_BME280::SAMPLING_X1, // pressure
@@ -90,8 +92,11 @@ void setup() {
     wifiMulti.addAP(WIFI_SSID, WIFI_PASS);
     while (wifiMulti.run() != WL_CONNECTED) {
       Serial.print(".");
-      delay(500); 
+      delay(1000); 
     }
+    
+    Serial.println();
+    Serial.println();
     Serial.println();
 
       // Check server connection
@@ -106,9 +111,12 @@ void setup() {
       Serial.println(client.getLastErrorMessage());
     }
 
+    Serial.println();
+    Serial.println();
+    Serial.println();
+
     blink();
 }
-
 
 void loop() { 
     postValues();
@@ -121,7 +129,6 @@ void postValues() {
     bme.takeForcedMeasurement();
     // Report RSSI of currently connected network
     sensor.addField("rssi", WiFi.RSSI());
-    sensor.addField("uptime", 1);
     sensor.addField("temperature", bme.readTemperature());
     sensor.addField("pressure", bme.readPressure() / 100.0F);
     sensor.addField("humidity", bme.readHumidity());

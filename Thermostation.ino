@@ -4,12 +4,6 @@
 #include "WIFICredentials.h"
 #include "InfluxDBCredentials.h"
 
-// Constants for the 
-//#define BME_SCK 13
-//#define BME_MISO 12
-//#define BME_MOSI 11
-//#define BME_CS 10
-
 #if defined(ESP32)
 #include <WiFiMulti.h>
 WiFiMulti wifiMulti;
@@ -25,8 +19,7 @@ ESP8266WiFiMulti wifiMulti;
 // ####### CONFIG #######
 // The user may/should change these settings as he wishes
 const char* UNIT_TAG = "bedroom"; // The name of the unit that will show up in InfluxDB
-const int DELAY = 60000; // Delay between measurements in milliseconds
-const int BLINK = 0; // Should the unit blink when measurement is sent? 0 for false, 1 for true
+const int DELAY = 60e6; // Delay between measurements in microseconds
 
 // ####### InfluxDB ######
 
@@ -36,10 +29,8 @@ const int BLINK = 0; // Should the unit blink when measurement is sent? 0 for fa
 // InfluxDB 1 client instance
 InfluxDBClient client(INFLUXDB_URL, INFLUXDB_DBNAME);
 
-unsigned long delayTime;
-
 // Initiate sensor and datapoint
-Adafruit_BME280 bme; // I2C
+Adafruit_BME280 bme; // Use I2C as interface
 Point sensor(UNIT_TAG);
 
 void connectSensor() {
@@ -54,9 +45,6 @@ void connectSensor() {
         Serial.print("   ID of 0x56-0x58 represents a BMP 280,\n");
         Serial.print("        ID of 0x60 represents a BME 280.\n");
         Serial.print("        ID of 0x61 represents a BME 680.\n");
-        digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
-        delay(1000);                       // wait for a second
-        digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
         delay(1000);                       // wait for a second 
         while (1) delay(10);
     }
@@ -122,15 +110,11 @@ void submitMeasurement() {
       Serial.print("InfluxDB write failed: ");
       Serial.println(client.getLastErrorMessage());
     }
-    if (BLINK) {
-      blink();
-    }
 }
 
 void setup() {
     Serial.begin(9600);
     while(!Serial);    // time to get serial running
-    pinMode(LED_BUILTIN, OUTPUT);
     
     Serial.println();
     Serial.println();
@@ -145,21 +129,16 @@ void setup() {
     // Set the tags of the measurement
     setMeasurementTags();
 
+    // Do the measurement
+    readSensor();
+    submitMeasurement();
+
 
     Serial.println();
 
-    blink();
+    Serial.println("Sleeping until next cycle...");
+    ESP.deepSleep(DELAY); // Going into deep sleep
 }
 
 void loop() { 
-    readSensor();
-    submitMeasurement();
-    delay(DELAY);
-}
-
-void blink() {
-    digitalWrite(LED_BUILTIN, LOW);   // turn the LED on (HIGH is the voltage level)
-    delay(100);                       
-    digitalWrite(LED_BUILTIN, HIGH);    // turn the LED off by making the voltage LOW
-    delay(100);
 }
